@@ -492,9 +492,9 @@
     <section>
       <div class="pressure-card">
         <div class="pressure-head">
-          <div class="pressure-title">下一次爆掉機率</div>
+          <div class="pressure-title">炸彈風險</div>
           <div class="pressure-state" id="pressureState">READY</div>
-          <div class="pressure-rate" id="pressureRate">0%</div>
+          <div class="pressure-rate" id="pressureRate">LOW</div>
         </div>
         <div class="risk-row" aria-label="爆掉機率階段">
           <span class="risk-dot" id="risk0"></span>
@@ -662,9 +662,9 @@
     function createOrders() {
       const colors = COLORS.slice().sort(() => Math.random() - .5);
       state.orders = [
-        { color: colors[0], target: 10, reward: 10, progress: 0, level: "簡單" },
-        { color: colors[1], target: 24 + rand(5), reward: 35, progress: 0, level: "普通" },
-        { color: colors[2], target: 48 + rand(9), reward: 120, progress: 0, level: "困難" }
+        { color: colors[0], target: 10, reward: 25, progress: 0, level: "簡單" },
+        { color: colors[1], target: 24 + rand(5), reward: 90, progress: 0, level: "普通" },
+        { color: colors[2], target: 48 + rand(9), reward: 260, progress: 0, level: "困難" }
       ];
     }
 
@@ -742,18 +742,18 @@
     }
 
     function riskInfo() {
-      const rates = [1, 1, 2, 3, 5, 8, 12, 18, 25, 35];
+      const rates = [.4, .6, .8, 1.1, 1.5, 2.1, 2.8, 3.8, 5, 6.5];
       const rate = rates[Math.min(rates.length - 1, Math.floor(state.risk))];
-      if (rate <= 2) return { label: "LOW", rate, color: "#15803d" };
-      if (rate <= 8) return { label: "HOT", rate, color: "#a16207" };
-      if (rate <= 18) return { label: "DANGER", rate, color: "#c2410c" };
+      if (rate <= 1.1) return { label: "LOW", rate, color: "#15803d" };
+      if (rate <= 2.8) return { label: "WARM", rate, color: "#a16207" };
+      if (rate <= 5) return { label: "HOT", rate, color: "#c2410c" };
       return { label: "DANGER", rate, color: "#b91c1c" };
     }
 
     function riskGain(size) {
-      if (size >= 9) return 1.2;
-      if (size >= 6) return .85;
-      return .6;
+      if (size >= 9) return .8;
+      if (size >= 6) return .55;
+      return .35;
     }
 
     function progressMultiplier(size) {
@@ -807,7 +807,7 @@
       els.bet.textContent = currentBet();
       els.pressureState.textContent = info.label;
       els.pressureState.style.color = info.color;
-      els.pressureRate.textContent = `${info.rate}%`;
+      els.pressureRate.textContent = info.label;
       els.riskDots.forEach((dot, i) => dot.classList.toggle("active", i <= Math.min(4, Math.floor(state.risk / 2))));
       els.betDown.disabled = state.inRound || state.busy;
       els.betUp.disabled = state.inRound || state.busy;
@@ -881,13 +881,13 @@
           order.progress = 0;
           if (order.level === "簡單") {
             order.target = 10;
-            order.reward = 10;
+            order.reward = 25;
           } else if (order.level === "普通") {
             order.target = 24 + rand(5);
-            order.reward = 35;
+            order.reward = 90;
           } else {
             order.target = 48 + rand(9);
-            order.reward = 120;
+            order.reward = 260;
           }
         }
       });
