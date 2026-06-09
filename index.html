@@ -139,7 +139,7 @@
 
     .hud {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 6px;
     }
 
@@ -291,7 +291,7 @@
 
     .pressure-head {
       display: grid;
-      grid-template-columns: 1fr auto auto;
+      grid-template-columns: 1fr auto;
       gap: 8px;
       align-items: center;
     }
@@ -308,12 +308,6 @@
       background: rgba(34,197,94,.14);
       color: #15803d;
       font-size: 12px;
-      font-weight: 1000;
-    }
-
-    .pressure-rate {
-      color: #be123c;
-      font-size: 18px;
       font-weight: 1000;
     }
 
@@ -482,6 +476,7 @@
       <div class="stat"><span class="label">餘額</span><span class="value" id="credits">1000</span></div>
       <div class="stat"><span class="label">Pot</span><span class="value" id="pot">0.00x</span></div>
       <div class="stat"><span class="label">可領</span><span class="value" id="cashValue">0</span></div>
+      <div class="stat"><span class="label">本局花費</span><span class="value" id="spent">0</span></div>
     </section>
 
     <main class="stage">
@@ -494,7 +489,6 @@
         <div class="pressure-head">
           <div class="pressure-title">炸彈風險</div>
           <div class="pressure-state" id="pressureState">READY</div>
-          <div class="pressure-rate" id="pressureRate">LOW</div>
         </div>
         <div class="risk-row" aria-label="爆掉機率階段">
           <span class="risk-dot" id="risk0"></span>
@@ -522,7 +516,7 @@
     const COLS = 7;
     const COLORS = ["red", "blue", "green", "yellow", "purple", "orange"];
     const NAMES = { red: "紅糖", blue: "藍糖", green: "綠糖", yellow: "黃糖", purple: "紫糖", orange: "橘糖" };
-    const BETS = [10, 20, 50, 100];
+    const BETS = [10, 20, 50, 100, 200, 500, 1000];
     const RTP_FACTOR = 0.965;
 
     const state = {
@@ -532,6 +526,7 @@
       credits: 1000,
       betIndex: 1,
       pot: 0,
+      spent: 0,
       risk: 0,
       inRound: false,
       busy: false,
@@ -545,11 +540,11 @@
       credits: document.getElementById("credits"),
       pot: document.getElementById("pot"),
       cashValue: document.getElementById("cashValue"),
+      spent: document.getElementById("spent"),
       mode: document.getElementById("mode"),
       locked: document.getElementById("locked"),
       board: document.getElementById("board"),
       pressureState: document.getElementById("pressureState"),
-      pressureRate: document.getElementById("pressureRate"),
       riskDots: [
         document.getElementById("risk0"),
         document.getElementById("risk1"),
@@ -668,6 +663,12 @@
       ];
     }
 
+    function pickOrderColor(orderToReplace) {
+      const used = new Set(state.orders.filter(order => order !== orderToReplace).map(order => order.color));
+      const available = COLORS.filter(color => !used.has(color));
+      return available[rand(available.length)];
+    }
+
     function seedBoard() {
       state.board = Array.from({ length: ROWS }, () => Array.from({ length: COLS }, () => makeCandy()));
       const colors = COLORS.slice().sort(() => Math.random() - .5).slice(0, 5);
@@ -696,6 +697,7 @@
       }
       state.credits -= currentBet();
       state.pot = 0;
+      state.spent = currentBet();
       state.risk = 0;
       state.inRound = true;
       createOrders();
@@ -803,11 +805,11 @@
       els.credits.textContent = state.credits;
       els.pot.textContent = `${state.pot.toFixed(2)}x`;
       els.cashValue.textContent = cash;
+      els.spent.textContent = state.spent;
       els.mode.textContent = state.inRound ? "遊戲中" : "等待下注";
       els.bet.textContent = currentBet();
       els.pressureState.textContent = info.label;
       els.pressureState.style.color = info.color;
-      els.pressureRate.textContent = info.label;
       els.riskDots.forEach((dot, i) => dot.classList.toggle("active", i <= Math.min(4, Math.floor(state.risk / 2))));
       els.betDown.disabled = state.inRound || state.busy;
       els.betUp.disabled = state.inRound || state.busy;
@@ -834,6 +836,7 @@
       ensureAudio();
       state.busy = true;
       state.credits -= currentBet();
+      state.spent += currentBet();
       group.cells.forEach(([r, c]) => {
         const el = els.board.children[r * COLS + c];
         if (el) {
@@ -877,7 +880,7 @@
           playSound("win");
           showPrize(`+${reward.toFixed(2)}x`, `${order.level}訂單完成`);
           showToast(`訂單完成 +${reward.toFixed(2)}x`);
-          order.color = COLORS[rand(COLORS.length)];
+          order.color = pickOrderColor(order);
           order.progress = 0;
           if (order.level === "簡單") {
             order.target = 10;
