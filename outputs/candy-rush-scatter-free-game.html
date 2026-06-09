@@ -573,6 +573,7 @@
       pot: 0,
       spent: 0,
       risk: 0,
+      pendingGroupId: null,
       inRound: false,
       busy: false,
       orders: [],
@@ -747,6 +748,7 @@
       state.pot = 0;
       state.spent = currentBet();
       state.risk = 0;
+      state.pendingGroupId = null;
       state.inRound = true;
       state.ordersRevealed = false;
       createOrders();
@@ -825,9 +827,6 @@
           const btn = document.createElement("button");
           btn.className = `cell ${marked.has(`${r},${c}`) ? "group" : ""}`;
           btn.type = "button";
-          btn.addEventListener("pointerenter", () => previewCell(r, c));
-          btn.addEventListener("pointerdown", () => previewCell(r, c));
-          btn.addEventListener("focus", () => previewCell(r, c));
           btn.addEventListener("click", () => onCell(r, c));
           const candy = document.createElement("span");
           candy.className = `candy ${cell.color}`;
@@ -887,19 +886,13 @@
       }
       state.ordersRevealed = true;
       state.selected = group.id;
-      clearGroup(group);
-    }
-
-    function previewCell(r, c) {
-      if (!state.inRound || state.busy) return;
-      const group = state.groups.find(g => g.cells.some(([gr, gc]) => gr === r && gc === c));
-      if (!group) {
-        hidePreview();
+      if (state.pendingGroupId !== group.id) {
+        state.pendingGroupId = group.id;
+        showGroupPreview(group);
+        renderBoardOnly();
         return;
       }
-      state.selected = group.id;
-      showGroupPreview(group);
-      renderBoardOnly();
+      clearGroup(group);
     }
 
     function showGroupPreview(group) {
@@ -907,7 +900,7 @@
       const boosted = round2(group.cells.length * mult);
       const hasOrder = state.orders.some(order => order.color === group.color);
       const note = hasOrder ? `任務進度 +${group.cells.length} → 加成後 +${boosted}` : `目前沒有${NAMES[group.color]}懸賞`;
-      els.groupPreview.innerHTML = `消除 ${group.cells.length} 顆${NAMES[group.color]}<span>${note}</span>`;
+      els.groupPreview.innerHTML = `消除 ${group.cells.length} 顆${NAMES[group.color]}<span>${note}。再點一次確認消除</span>`;
       els.groupPreview.classList.add("show");
     }
 
@@ -933,6 +926,7 @@
       ensureAudio();
       state.busy = true;
       hidePreview();
+      state.pendingGroupId = null;
       state.credits -= currentBet();
       state.spent += currentBet();
       group.cells.forEach(([r, c]) => {
@@ -1011,6 +1005,7 @@
         state.inRound = false;
         state.pot = 0;
         state.risk = 0;
+        state.pendingGroupId = null;
         state.ordersRevealed = false;
         playSound("bust");
         showToast("工廠爆炸，Pot 歸零");
@@ -1026,6 +1021,7 @@
       state.inRound = false;
       state.pot = 0;
       state.risk = 0;
+      state.pendingGroupId = null;
       state.ordersRevealed = false;
       hidePreview();
       render();
