@@ -197,40 +197,6 @@
       overflow: hidden;
     }
 
-    .group-preview {
-      position: absolute;
-      left: 50%;
-      top: 10px;
-      z-index: 3;
-      width: min(330px, calc(100% - 20px));
-      padding: 9px 11px;
-      border: 1px solid rgba(251,191,36,.5);
-      border-radius: 8px;
-      background: rgba(255,255,255,.94);
-      box-shadow: 0 12px 26px rgba(15,23,42,.14);
-      color: #0f172a;
-      text-align: center;
-      font-size: 13px;
-      font-weight: 1000;
-      line-height: 1.35;
-      transform: translateX(-50%) translateY(-8px);
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity .16s ease, transform .16s ease;
-    }
-
-    .group-preview.show {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0);
-    }
-
-    .group-preview span {
-      display: block;
-      color: #be123c;
-      font-size: 12px;
-      margin-top: 2px;
-    }
-
     .board {
       width: max-content;
       max-width: 100%;
@@ -524,7 +490,6 @@
     </section>
 
     <main class="stage">
-      <div class="group-preview" id="groupPreview"></div>
       <div class="locked" id="locked">下注後才會開啟糖果盤面</div>
       <div class="board" id="board" hidden></div>
     </main>
@@ -573,7 +538,6 @@
       pot: 0,
       spent: 0,
       risk: 0,
-      pendingGroupId: null,
       inRound: false,
       busy: false,
       orders: [],
@@ -591,7 +555,6 @@
       mode: document.getElementById("mode"),
       locked: document.getElementById("locked"),
       board: document.getElementById("board"),
-      groupPreview: document.getElementById("groupPreview"),
       pressureState: document.getElementById("pressureState"),
       riskDots: [
         document.getElementById("risk0"),
@@ -748,7 +711,6 @@
       state.pot = 0;
       state.spent = currentBet();
       state.risk = 0;
-      state.pendingGroupId = null;
       state.inRound = true;
       state.ordersRevealed = false;
       createOrders();
@@ -886,36 +848,7 @@
       }
       state.ordersRevealed = true;
       state.selected = group.id;
-      if (state.pendingGroupId !== group.id) {
-        state.pendingGroupId = group.id;
-        showGroupPreview(group);
-        renderBoardOnly();
-        return;
-      }
       clearGroup(group);
-    }
-
-    function showGroupPreview(group) {
-      const mult = progressMultiplier(group.cells.length);
-      const boosted = round2(group.cells.length * mult);
-      const hasOrder = state.orders.some(order => order.color === group.color);
-      const note = hasOrder ? `任務進度 +${group.cells.length} → 加成後 +${boosted}` : `目前沒有${NAMES[group.color]}懸賞`;
-      els.groupPreview.innerHTML = `消除 ${group.cells.length} 顆${NAMES[group.color]}<span>${note}。再點一次確認消除</span>`;
-      els.groupPreview.classList.add("show");
-    }
-
-    function hidePreview() {
-      els.groupPreview.classList.remove("show");
-    }
-
-    function renderBoardOnly() {
-      const selected = state.groups.find(g => g.id === state.selected);
-      const marked = new Set(selected ? selected.cells.map(([r, c]) => `${r},${c}`) : []);
-      [...els.board.children].forEach((child, index) => {
-        const r = Math.floor(index / COLS);
-        const c = index % COLS;
-        child.classList.toggle("group", marked.has(`${r},${c}`));
-      });
     }
 
     function clearGroup(group) {
@@ -925,8 +858,6 @@
       }
       ensureAudio();
       state.busy = true;
-      hidePreview();
-      state.pendingGroupId = null;
       state.credits -= currentBet();
       state.spent += currentBet();
       group.cells.forEach(([r, c]) => {
@@ -944,7 +875,6 @@
         });
         if (checkExplosion()) {
           state.busy = false;
-          hidePreview();
           render();
           return;
         }
@@ -956,7 +886,6 @@
         dropAndRefill();
         analyze();
         state.busy = false;
-        hidePreview();
         render();
       }, 260);
       render();
@@ -1005,7 +934,6 @@
         state.inRound = false;
         state.pot = 0;
         state.risk = 0;
-        state.pendingGroupId = null;
         state.ordersRevealed = false;
         playSound("bust");
         showToast("工廠爆炸，Pot 歸零");
@@ -1021,9 +949,7 @@
       state.inRound = false;
       state.pot = 0;
       state.risk = 0;
-      state.pendingGroupId = null;
       state.ordersRevealed = false;
-      hidePreview();
       render();
       playSound("cash");
       showPrize(`+${amount}`, "Cash Out 成功");
