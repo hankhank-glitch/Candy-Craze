@@ -221,6 +221,30 @@
     .cell:active { transform: scale(.96); }
     .cell.burst { animation: burst .28s ease both; }
 
+    .cell.crack::after {
+      content: "";
+      position: absolute;
+      inset: 9%;
+      background:
+        linear-gradient(42deg, transparent 0 46%, rgba(255,255,255,.92) 47% 51%, transparent 52%),
+        linear-gradient(118deg, transparent 0 44%, rgba(15,23,42,.22) 45% 49%, transparent 50%);
+      opacity: .95;
+      pointer-events: none;
+    }
+
+    .shard {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 9px;
+      height: 9px;
+      border-radius: 3px;
+      background: currentColor;
+      opacity: .9;
+      pointer-events: none;
+      animation: shardPop .48s ease-out forwards;
+    }
+
     .candy {
       position: absolute;
       inset: 12%;
@@ -284,46 +308,21 @@
       font-weight: 1000;
     }
 
-    .pressure-track {
-      position: relative;
-      height: 22px;
-      margin-top: 8px;
-      border-radius: 999px;
-      background: linear-gradient(90deg, #22c55e 0 30%, #facc15 30% 60%, #fb923c 60% 80%, #ef4444 80% 100%);
-      box-shadow: inset 0 0 0 1px rgba(15,23,42,.14);
-      overflow: hidden;
-    }
-
-    .pressure-mask {
-      position: absolute;
-      top: 0;
-      right: 0;
-      height: 100%;
-      width: 100%;
-      background: rgba(255,255,255,.72);
-      transition: width .25s ease;
-    }
-
-    .pressure-pointer {
-      position: absolute;
-      top: -5px;
-      left: 0;
-      width: 4px;
-      height: 32px;
-      border-radius: 99px;
-      background: #0f172a;
-      transform: translateX(-2px);
-      transition: left .25s ease;
-    }
-
-    .zones {
+    .risk-row {
       display: grid;
-      grid-template-columns: 30fr 30fr 20fr 20fr;
-      margin-top: 5px;
-      color: #64748b;
-      font-size: 9px;
-      font-weight: 1000;
-      text-align: center;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 5px;
+      margin-top: 8px;
+    }
+
+    .risk-dot {
+      height: 9px;
+      border-radius: 999px;
+      background: rgba(15,23,42,.12);
+    }
+
+    .risk-dot.active {
+      background: linear-gradient(90deg, #22c55e, #facc15, #fb7185);
     }
 
     .actions {
@@ -391,10 +390,59 @@
 
     .toast.show { transform: translateX(-50%) translateY(0); }
 
+    .prize {
+      position: fixed;
+      left: 50%;
+      top: 46%;
+      z-index: 11;
+      min-width: min(320px, calc(100vw - 42px));
+      padding: 18px 20px;
+      border: 1px solid rgba(255,255,255,.72);
+      border-radius: 8px;
+      background: linear-gradient(145deg, rgba(255,255,255,.94), rgba(255,241,242,.94));
+      box-shadow: 0 22px 50px rgba(190,18,60,.24);
+      color: #be123c;
+      text-align: center;
+      transform: translate(-50%, -50%) scale(.8);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .prize.show {
+      animation: prizePop 1.05s ease both;
+    }
+
+    .prize strong {
+      display: block;
+      font-size: 30px;
+      line-height: 1;
+      font-weight: 1000;
+    }
+
+    .prize span {
+      display: block;
+      margin-top: 6px;
+      color: #475569;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
     @keyframes burst {
       0% { transform: scale(1); opacity: 1; }
       70% { transform: scale(1.2) rotate(7deg); opacity: .25; }
       100% { transform: scale(.12); opacity: 0; }
+    }
+
+    @keyframes shardPop {
+      0% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: .95; }
+      100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(.35) rotate(160deg); opacity: 0; }
+    }
+
+    @keyframes prizePop {
+      0% { transform: translate(-50%, -50%) scale(.72); opacity: 0; }
+      16% { transform: translate(-50%, -50%) scale(1.08); opacity: 1; }
+      75% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+      100% { transform: translate(-50%, -58%) scale(.92); opacity: 0; }
     }
 
     @media (max-height: 740px) {
@@ -409,6 +457,7 @@
 </head>
 <body>
   <div class="toast" id="toast"></div>
+  <div class="prize" id="prize"><strong id="prizeMain">+0.00x</strong><span id="prizeSub">Pot 增加</span></div>
   <div class="phone">
     <header class="top">
       <div>
@@ -434,19 +483,16 @@
     <section>
       <div class="pressure-card">
         <div class="pressure-head">
-          <div class="pressure-title">糖果工廠壓力</div>
-          <div class="pressure-state" id="pressureState">SAFE</div>
+          <div class="pressure-title">下一次爆掉機率</div>
+          <div class="pressure-state" id="pressureState">READY</div>
           <div class="pressure-rate" id="pressureRate">0%</div>
         </div>
-        <div class="pressure-track">
-          <div class="pressure-mask" id="pressureMask"></div>
-          <div class="pressure-pointer" id="pressurePointer"></div>
-        </div>
-        <div class="zones">
-          <span>SAFE 0%</span>
-          <span>HOT 2%</span>
-          <span>DANGER 8%</span>
-          <span>OVERHEAT 20~50%</span>
+        <div class="risk-row" aria-label="爆掉機率階段">
+          <span class="risk-dot" id="risk0"></span>
+          <span class="risk-dot" id="risk1"></span>
+          <span class="risk-dot" id="risk2"></span>
+          <span class="risk-dot" id="risk3"></span>
+          <span class="risk-dot" id="risk4"></span>
         </div>
       </div>
 
@@ -477,10 +523,12 @@
       credits: 1000,
       betIndex: 1,
       pot: 0,
-      pressure: 0,
+      risk: 0,
       inRound: false,
       busy: false,
-      orders: []
+      orders: [],
+      audioStarted: false,
+      musicTimer: null
     };
 
     const els = {
@@ -493,15 +541,93 @@
       board: document.getElementById("board"),
       pressureState: document.getElementById("pressureState"),
       pressureRate: document.getElementById("pressureRate"),
-      pressureMask: document.getElementById("pressureMask"),
-      pressurePointer: document.getElementById("pressurePointer"),
+      riskDots: [
+        document.getElementById("risk0"),
+        document.getElementById("risk1"),
+        document.getElementById("risk2"),
+        document.getElementById("risk3"),
+        document.getElementById("risk4")
+      ],
       bet: document.getElementById("bet"),
       betDown: document.getElementById("betDown"),
       betUp: document.getElementById("betUp"),
       betButton: document.getElementById("betButton"),
       cashOut: document.getElementById("cashOut"),
-      toast: document.getElementById("toast")
+      toast: document.getElementById("toast"),
+      prize: document.getElementById("prize"),
+      prizeMain: document.getElementById("prizeMain"),
+      prizeSub: document.getElementById("prizeSub")
     };
+
+    let audioCtx;
+
+    function ensureAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+      if (!state.audioStarted) {
+        state.audioStarted = true;
+        startMusic();
+      }
+    }
+
+    function tone(freq, dur = .12, type = "sine", gain = .055, when = 0) {
+      if (!audioCtx) return;
+      const t = audioCtx.currentTime + when;
+      const osc = audioCtx.createOscillator();
+      const amp = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, t);
+      amp.gain.setValueAtTime(0, t);
+      amp.gain.linearRampToValueAtTime(gain, t + .015);
+      amp.gain.exponentialRampToValueAtTime(.0001, t + dur);
+      osc.connect(amp).connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + dur + .03);
+    }
+
+    function noise(dur = .18, gain = .045) {
+      if (!audioCtx) return;
+      const buffer = audioCtx.createBuffer(1, Math.max(1, audioCtx.sampleRate * dur), audioCtx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+      const src = audioCtx.createBufferSource();
+      const amp = audioCtx.createGain();
+      src.buffer = buffer;
+      amp.gain.value = gain;
+      src.connect(amp).connect(audioCtx.destination);
+      src.start();
+    }
+
+    function playSound(name) {
+      ensureAudio();
+      if (name === "clear") {
+        tone(660, .08, "triangle", .05);
+        tone(990, .12, "triangle", .04, .06);
+        noise(.12, .025);
+      } else if (name === "win") {
+        [523, 659, 784, 1046].forEach((f, i) => tone(f, .14, "sine", .05, i * .07));
+      } else if (name === "bust") {
+        tone(120, .34, "sawtooth", .075);
+        noise(.36, .08);
+      } else if (name === "cash") {
+        [784, 988, 1175].forEach((f, i) => tone(f, .12, "triangle", .045, i * .08));
+      } else if (name === "bet") {
+        tone(440, .09, "square", .035);
+        tone(660, .09, "square", .03, .08);
+      }
+    }
+
+    function startMusic() {
+      if (state.musicTimer || !audioCtx) return;
+      const notes = [262, 330, 392, 523, 392, 330, 294, 392];
+      let step = 0;
+      state.musicTimer = setInterval(() => {
+        if (!audioCtx || !state.audioStarted) return;
+        tone(notes[step % notes.length], .16, "sine", .018);
+        if (step % 2 === 0) tone(notes[(step + 2) % notes.length] / 2, .2, "triangle", .012);
+        step++;
+      }, 360);
+    }
 
     function rand(max) {
       return Math.floor(Math.random() * max);
@@ -556,11 +682,12 @@
       }
       state.credits -= currentBet();
       state.pot = 0;
-      state.pressure = 0;
+      state.risk = 0;
       state.inRound = true;
       createOrders();
       seedBoard();
       render();
+      playSound("bet");
       showToast(`BET ${currentBet()}，盤面開啟`);
     }
 
@@ -600,17 +727,25 @@
       return round2(curve * RTP_FACTOR);
     }
 
-    function pressureInfo() {
-      const p = state.pressure;
-      if (p <= 30) return { label: "SAFE", rate: 0, color: "#15803d" };
-      if (p <= 60) return { label: "HOT", rate: 2, color: "#a16207" };
-      if (p <= 80) return { label: "DANGER", rate: 8, color: "#c2410c" };
-      if (p <= 90) return { label: "OVERHEAT", rate: 20, color: "#b91c1c" };
-      return { label: "OVERHEAT", rate: 50, color: "#991b1b" };
+    function riskInfo() {
+      const rates = [0, 2, 5, 9, 15, 24, 35, 50];
+      const rate = rates[Math.min(rates.length - 1, state.risk)];
+      if (rate === 0) return { label: "SAFE", rate, color: "#15803d" };
+      if (rate <= 5) return { label: "LOW", rate, color: "#a16207" };
+      if (rate <= 15) return { label: "HOT", rate, color: "#c2410c" };
+      return { label: "DANGER", rate, color: "#b91c1c" };
     }
 
-    function pressureGain(size) {
-      return Math.min(9, 3 + Math.floor(size / 4));
+    function riskGain(size) {
+      if (size >= 9) return 2;
+      return 1;
+    }
+
+    function progressMultiplier(size) {
+      if (size >= 9) return 2;
+      if (size >= 6) return 1.5;
+      if (size >= 4) return 1.2;
+      return 1;
     }
 
     function render() {
@@ -645,7 +780,7 @@
         els.orders.appendChild(node);
       });
 
-      const info = pressureInfo();
+      const info = riskInfo();
       const cash = Math.floor(currentBet() * state.pot);
       els.credits.textContent = state.credits;
       els.pot.textContent = `${state.pot.toFixed(2)}x`;
@@ -655,8 +790,7 @@
       els.pressureState.textContent = info.label;
       els.pressureState.style.color = info.color;
       els.pressureRate.textContent = `${info.rate}%`;
-      els.pressureMask.style.width = `${100 - Math.min(100, state.pressure)}%`;
-      els.pressurePointer.style.left = `${Math.min(100, state.pressure)}%`;
+      els.riskDots.forEach((dot, i) => dot.classList.toggle("active", i <= Math.min(4, state.risk)));
       els.betDown.disabled = state.inRound || state.busy;
       els.betUp.disabled = state.inRound || state.busy;
       els.betButton.disabled = state.busy;
@@ -679,34 +813,54 @@
         showToast("餘額不足，無法 Continue");
         return;
       }
+      ensureAudio();
       state.busy = true;
       state.credits -= currentBet();
       group.cells.forEach(([r, c]) => {
         const el = els.board.children[r * COLS + c];
-        if (el) el.classList.add("burst");
+        if (el) {
+          el.classList.add("crack");
+          spawnShards(el, state.board[r][c].color);
+        }
       });
-      state.pot = round2(state.pot + group.gain);
-      state.pressure = Math.min(100, state.pressure + pressureGain(group.cells.length));
-      updateOrders(group);
+      playSound("clear");
       setTimeout(() => {
+        group.cells.forEach(([r, c]) => {
+          const el = els.board.children[r * COLS + c];
+          if (el) el.classList.add("burst");
+        });
+        if (checkExplosion()) {
+          state.busy = false;
+          render();
+          return;
+        }
+        const gain = group.gain;
+        state.pot = round2(state.pot + gain);
+        state.risk = Math.min(7, state.risk + riskGain(group.cells.length));
+        updateOrders(group);
         group.cells.forEach(([r, c]) => state.board[r][c] = null);
         dropAndRefill();
         analyze();
-        const exploded = checkExplosion();
         state.busy = false;
         render();
-        if (!exploded) showToast(`+${group.gain.toFixed(2)}x Pot`);
+        showPrize(`+${gain.toFixed(2)}x`, "Pot 增加");
+        showToast(`+${gain.toFixed(2)}x Pot`);
       }, 260);
       render();
     }
 
     function updateOrders(group) {
+      const multiplier = progressMultiplier(group.cells.length);
+      const progressGain = group.cells.length * multiplier;
       state.orders.forEach(order => {
         if (order.color !== group.color) return;
-        order.progress += group.cells.length;
+        order.progress += progressGain;
         if (order.progress >= order.target) {
-          state.pot = round2(state.pot + order.reward * RTP_FACTOR);
-          showToast(`訂單完成 +${(order.reward * RTP_FACTOR).toFixed(2)}x`);
+          const reward = round2(order.reward * RTP_FACTOR);
+          state.pot = round2(state.pot + reward);
+          playSound("win");
+          showPrize(`+${reward.toFixed(2)}x`, `${order.level}訂單完成`);
+          showToast(`訂單完成 +${reward.toFixed(2)}x`);
           order.color = COLORS[rand(COLORS.length)];
           order.progress = 0;
           if (order.level === "簡單") {
@@ -732,12 +886,13 @@
     }
 
     function checkExplosion() {
-      const info = pressureInfo();
+      const info = riskInfo();
       if (!state.inRound || info.rate === 0) return false;
       if (chance(info.rate)) {
         state.inRound = false;
         state.pot = 0;
-        state.pressure = 0;
+        state.risk = 0;
+        playSound("bust");
         showToast("工廠爆炸，Pot 歸零");
         return true;
       }
@@ -750,9 +905,38 @@
       state.credits += amount;
       state.inRound = false;
       state.pot = 0;
-      state.pressure = 0;
+      state.risk = 0;
       render();
+      playSound("cash");
+      showPrize(`+${amount}`, "Cash Out 成功");
       showToast(`Cash Out +${amount}`);
+    }
+
+    function spawnShards(cell, color) {
+      const map = {
+        red: "#fb7185",
+        blue: "#38bdf8",
+        green: "#22c55e",
+        yellow: "#facc15",
+        purple: "#d946ef",
+        orange: "#fb923c"
+      };
+      for (let i = 0; i < 7; i++) {
+        const shard = document.createElement("span");
+        shard.className = "shard";
+        shard.style.color = map[color] || "#fb7185";
+        shard.style.setProperty("--dx", `${Math.cos(i / 7 * Math.PI * 2) * (18 + rand(18))}px`);
+        shard.style.setProperty("--dy", `${Math.sin(i / 7 * Math.PI * 2) * (18 + rand(18))}px`);
+        cell.appendChild(shard);
+      }
+    }
+
+    function showPrize(main, sub) {
+      els.prizeMain.textContent = main;
+      els.prizeSub.textContent = sub;
+      els.prize.classList.remove("show");
+      void els.prize.offsetWidth;
+      els.prize.classList.add("show");
     }
 
     function round2(value) {
