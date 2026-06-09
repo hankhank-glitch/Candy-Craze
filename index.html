@@ -112,6 +112,15 @@
       font-weight: 1000;
     }
 
+    .order .count {
+      display: block;
+      margin-top: 4px;
+      color: #475569;
+      font-size: 10px;
+      line-height: 1.15;
+      font-weight: 950;
+    }
+
     .mini-meter {
       height: 7px;
       margin-top: 6px;
@@ -457,7 +466,7 @@
 </head>
 <body>
   <div class="toast" id="toast"></div>
-  <div class="prize" id="prize"><strong id="prizeMain">+0.00x</strong><span id="prizeSub">Pot 增加</span></div>
+  <div class="prize" id="prize"><strong id="prizeMain">+0.00x</strong><span id="prizeSub">獎項提示</span></div>
   <div class="phone">
     <header class="top">
       <div>
@@ -601,32 +610,37 @@
     function playSound(name) {
       ensureAudio();
       if (name === "clear") {
-        tone(660, .08, "triangle", .05);
-        tone(990, .12, "triangle", .04, .06);
-        noise(.12, .025);
+        tone(660, .08, "triangle", .075);
+        tone(990, .12, "triangle", .062, .06);
+        noise(.12, .04);
       } else if (name === "win") {
-        [523, 659, 784, 1046].forEach((f, i) => tone(f, .14, "sine", .05, i * .07));
+        [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, .15, "sine", .075, i * .065));
       } else if (name === "bust") {
-        tone(120, .34, "sawtooth", .075);
-        noise(.36, .08);
+        tone(120, .34, "sawtooth", .105);
+        noise(.36, .11);
       } else if (name === "cash") {
-        [784, 988, 1175].forEach((f, i) => tone(f, .12, "triangle", .045, i * .08));
+        [784, 988, 1175].forEach((f, i) => tone(f, .12, "triangle", .07, i * .08));
       } else if (name === "bet") {
-        tone(440, .09, "square", .035);
-        tone(660, .09, "square", .03, .08);
+        tone(440, .09, "square", .055);
+        tone(660, .09, "square", .046, .08);
       }
     }
 
     function startMusic() {
       if (state.musicTimer || !audioCtx) return;
-      const notes = [262, 330, 392, 523, 392, 330, 294, 392];
+      const notes = [262, 330, 392, 523, 659, 523, 392, 330];
       let step = 0;
-      state.musicTimer = setInterval(() => {
+      const tick = () => {
         if (!audioCtx || !state.audioStarted) return;
-        tone(notes[step % notes.length], .16, "sine", .018);
-        if (step % 2 === 0) tone(notes[(step + 2) % notes.length] / 2, .2, "triangle", .012);
+        const beatGain = .032 + Math.min(.03, state.risk * .004);
+        tone(notes[step % notes.length], .13, step % 2 ? "triangle" : "square", beatGain);
+        if (step % 2 === 0) tone(notes[(step + 2) % notes.length] / 2, .18, "triangle", .026);
+        if (step % 4 === 0) noise(.035, .018);
         step++;
-      }, 360);
+        const delay = Math.max(150, 340 - state.risk * 24);
+        state.musicTimer = setTimeout(tick, delay);
+      };
+      tick();
     }
 
     function rand(max) {
@@ -648,9 +662,9 @@
     function createOrders() {
       const colors = COLORS.slice().sort(() => Math.random() - .5);
       state.orders = [
-        { color: colors[0], target: 6 + rand(3), reward: .35, progress: 0, level: "簡單" },
-        { color: colors[1], target: 14 + rand(5), reward: 1.8, progress: 0, level: "普通" },
-        { color: colors[2], target: 28 + rand(9), reward: 8 + rand(5), progress: 0, level: "困難" }
+        { color: colors[0], target: 10, reward: 10, progress: 0, level: "簡單" },
+        { color: colors[1], target: 24 + rand(5), reward: 35, progress: 0, level: "普通" },
+        { color: colors[2], target: 48 + rand(9), reward: 120, progress: 0, level: "困難" }
       ];
     }
 
@@ -728,17 +742,18 @@
     }
 
     function riskInfo() {
-      const rates = [0, 2, 5, 9, 15, 24, 35, 50];
-      const rate = rates[Math.min(rates.length - 1, state.risk)];
-      if (rate === 0) return { label: "SAFE", rate, color: "#15803d" };
-      if (rate <= 5) return { label: "LOW", rate, color: "#a16207" };
-      if (rate <= 15) return { label: "HOT", rate, color: "#c2410c" };
+      const rates = [1, 1, 2, 3, 5, 8, 12, 18, 25, 35];
+      const rate = rates[Math.min(rates.length - 1, Math.floor(state.risk))];
+      if (rate <= 2) return { label: "LOW", rate, color: "#15803d" };
+      if (rate <= 8) return { label: "HOT", rate, color: "#a16207" };
+      if (rate <= 18) return { label: "DANGER", rate, color: "#c2410c" };
       return { label: "DANGER", rate, color: "#b91c1c" };
     }
 
     function riskGain(size) {
-      if (size >= 9) return 2;
-      return 1;
+      if (size >= 9) return 1.2;
+      if (size >= 6) return .85;
+      return .6;
     }
 
     function progressMultiplier(size) {
@@ -770,11 +785,14 @@
       els.orders.innerHTML = "";
       state.orders.forEach(order => {
         const pct = Math.min(100, order.progress / order.target * 100);
+        const done = Math.min(order.target, Math.floor(order.progress));
+        const left = Math.max(0, Math.ceil(order.target - order.progress));
         const node = document.createElement("div");
         node.className = "order";
         node.innerHTML = `
           <strong>${order.level} ${NAMES[order.color]} ${order.target}</strong>
           <span class="reward">+${order.reward.toFixed(order.reward % 1 ? 2 : 0)}x</span>
+          <span class="count">${done}/${order.target} 剩 ${left}</span>
           <div class="mini-meter"><div class="mini-fill" style="width:${pct}%"></div></div>
         `;
         els.orders.appendChild(node);
@@ -790,7 +808,7 @@
       els.pressureState.textContent = info.label;
       els.pressureState.style.color = info.color;
       els.pressureRate.textContent = `${info.rate}%`;
-      els.riskDots.forEach((dot, i) => dot.classList.toggle("active", i <= Math.min(4, state.risk)));
+      els.riskDots.forEach((dot, i) => dot.classList.toggle("active", i <= Math.min(4, Math.floor(state.risk / 2))));
       els.betDown.disabled = state.inRound || state.busy;
       els.betUp.disabled = state.inRound || state.busy;
       els.betButton.disabled = state.busy;
@@ -836,15 +854,13 @@
         }
         const gain = group.gain;
         state.pot = round2(state.pot + gain);
-        state.risk = Math.min(7, state.risk + riskGain(group.cells.length));
+        state.risk = Math.min(9, round2(state.risk + riskGain(group.cells.length)));
         updateOrders(group);
         group.cells.forEach(([r, c]) => state.board[r][c] = null);
         dropAndRefill();
         analyze();
         state.busy = false;
         render();
-        showPrize(`+${gain.toFixed(2)}x`, "Pot 增加");
-        showToast(`+${gain.toFixed(2)}x Pot`);
       }, 260);
       render();
     }
@@ -864,14 +880,14 @@
           order.color = COLORS[rand(COLORS.length)];
           order.progress = 0;
           if (order.level === "簡單") {
-            order.target = 6 + rand(3);
-            order.reward = .35;
+            order.target = 10;
+            order.reward = 10;
           } else if (order.level === "普通") {
-            order.target = 14 + rand(5);
-            order.reward = 1.8;
+            order.target = 24 + rand(5);
+            order.reward = 35;
           } else {
-            order.target = 28 + rand(9);
-            order.reward = 8 + rand(5);
+            order.target = 48 + rand(9);
+            order.reward = 120;
           }
         }
       });
