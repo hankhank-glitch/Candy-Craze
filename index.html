@@ -702,7 +702,6 @@
 
     function startRound() {
       if (state.busy) return;
-      hidePreview();
       if (state.credits < currentBet()) {
         showToast("餘額不足");
         return;
